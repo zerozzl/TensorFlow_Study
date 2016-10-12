@@ -1,3 +1,4 @@
+import argparse
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
@@ -52,14 +53,14 @@ def train():
     hidden1 = nn_layer(x, 784, 500, 'layer1')
 
     with tf.name_scope('dropout'):
-        keep_prob = tf.plaeholder(tf.float32)
+        keep_prob = tf.placeholder(tf.float32)
         tf.scalar_summary('dropout_keep_probability', keep_prob)
         dropped = tf.nn.dropout(hidden1, keep_prob)
 
     y = nn_layer(dropped, 500, 10, 'layer2', act=tf.identity)
 
     with tf.name_scope('cross_entropy'):
-        diff = tf.nn.soft_cross_entropy_with_logits(y, y_)
+        diff = tf.nn.softmax_cross_entropy_with_logits(y, y_)
         with tf.name_scope('total'):
             cross_entropy = tf.reduce_mean(diff)
         tf.scalar_summary('cross entropy', cross_entropy)
@@ -74,3 +75,64 @@ def train():
             accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
         tf.scalar_summary('accuracy', accuracy)
 
+    merged = tf.merge_all_summaries()
+    train_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/train', sess.graph)
+    test_writer = tf.train.SummaryWriter(FLAGS.summaries_dir + '/test')
+    tf.initialize_all_variables().run()
+
+    def feed_dict(train):
+        if train or FLAGS.fake_data:
+            xs, ys = mnist.train.next_batch(100, fake_data=FLAGS.fake_data)
+            k = FLAGS.dropout
+        else:
+            xs, ys = mnist.test.images, mnist.test.labels
+            k = 1.0
+        return {x: xs, y_: ys, keep_prob: k}
+
+    for i in range(FLAGS.max_steps):
+        if i % 10 == 0:
+            summary, acc = sess.run([merged, accuracy], feed_dict=feed_dict(False))
+            test_writer.add_summary(summary, i)
+            print 'Accuracy at step %s: %s' % (i, acc)
+        else:
+            if i % 100 == 99:
+                run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                run_metadata = tf.RunMetadata()
+                summary, _ = sess.run([merged, train_step],
+                                      feed_dict=feed_dict(True),
+                                      options=run_options,
+                                      run_metadata=run_metadata)
+                train_writer.add_run_metadata(run_metadata, 'step%03d' % i)
+                train_writer.add_summary(summary, i)
+                print 'Adding run metadata for', i
+            else:
+                summary, _ = sess.run([merged, train_step], feed_dict=feed_dict(True))
+                train_writer.add_summary(summary, i)
+    train_writer.close()
+    test_writer.close()
+
+
+def main(_):
+    if tf.gfile.Exists(FLAGS.summaries_dir):
+        tf.gfile.DeleteRecursively(FLAGS.summaries_dir)
+    tf.gfile.MakeDirs(FLAGS.summaries_dir)
+    train()
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--fake_data', nargs='?', const=True, type=bool,
+                        default=False,
+                        help='If true, uses fake data for unit testing.')
+    parser.add_argument('--max_steps', type=int, default=1000,
+                        help='Number of steps to run trainer.')
+    parser.add_argument('--learning_rate', type=float, default=0.001,
+                        help='Initial learning rate.')
+    parser.add_argument('--dropout', type=float, default=0.9,
+                        help='Keep probability for training dropout.')
+    parser.add_argument('--data_dir', type=str, default='MNIST_data/',
+                        help='Directory for storing data.')
+    parser.add_argument('--summaries_dir', type=str, default='MNIST_logs',
+                        help='Summaries directory')
+    FLAGS = parser.parse_args()
+    tf.app.run()
