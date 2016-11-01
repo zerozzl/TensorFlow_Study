@@ -25,7 +25,7 @@ accuracy_score = classifier.evaluate(x=test_set.data, y=test_set.target)["accura
 print "Accuracy: {0:f}".format(accuracy_score)
 
 # Classify two new flower samples.
-new_samples = np.array([[6.4, 3.2, 4.5, 1.5], [5.8, 3.1, 5.0, 1.7]], dtype=float)
+new_samples = np.array(
+    [[6.4, 3.2, 4.5, 1.5], [5.8, 3.1, 5.0, 1.7]], dtype=float)
 y = classifier.predict(new_samples)
-print "Predictions: {}".format(str(y))
-r
+print('Predictions: {}'.format(str(y)))
