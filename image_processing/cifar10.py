@@ -1,8 +1,5 @@
 import re
 import os
-import sys
-from six.moves import urllib
-import tarfile
 
 import cifar10_input
 import tensorflow as tf
@@ -57,7 +54,7 @@ def distorted_inputs(data_dir, batch_size, use_fp16):
     return images, labels
 
 
-def input(eval_data, data_dir, batch_size, use_fp16):
+def inputs(eval_data, data_dir, batch_size, use_fp16):
     if not data_dir:
         raise ValueError('Please supply a data_dir')
     data_dir = os.path.join(data_dir, 'cifar-10-batches-bin')
@@ -202,13 +199,4 @@ def maybe_download_and_extract(data_dir):
     filename = DATA_URL.split('/')[-1]
     filepath = os.path.join(dest_directory, filename)
     if not os.path.exists(filepath):
-        def _progress(count, block_size, total_size):
-            sys.stdout.write('\r>> Downloading %s %.1f%%' % (filename,
-                                                             float(count * block_size) / float(total_size) * 100.0))
-            sys.stdout.flush()
-
-        filepath, _ = urllib.request.urlretrieve(DATA_URL, filepath, _progress)
-        print()
-        statinfo = os.stat(filepath)
-        print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
-        tarfile.open(filepath, 'r:gz').extractall(dest_directory)
+        raise ValueError('CIFAR Data do not exist')
