@@ -122,11 +122,11 @@ def evaluate(data_dir, eval_data, eval_dir, checkpoint_dir, run_once=True, eval_
 
 
 if __name__ == '__main__':
-  # cifar10.maybe_download_and_extract()
+  data_dir = 'cifar10_data'
   eval_dir = 'cifar10_eval'
   checkpoint_dir = 'cifar10_train'
   eval_data = 'test'  # Either 'test' or 'train_eval'
-  data_dir = 'cifar10_data'
+  cifar10.maybe_download_and_extract(data_dir)
   if tf.gfile.Exists(eval_dir):
     tf.gfile.DeleteRecursively(eval_dir)
   tf.gfile.MakeDirs(eval_dir)

@@ -12,6 +12,9 @@ Summary of available functions:
 """
 import os
 import re
+import sys
+import urllib
+import tarfile
 import tensorflow as tf
 
 import cifar10_input
@@ -326,10 +329,9 @@ def train(total_loss, global_step, batch_size=128):
   return train_op
 
 
-'''
-def maybe_download_and_extract():
+def maybe_download_and_extract(data_dir):
   """Download and extract the tarball from Alex's website."""
-  dest_directory = FLAGS.data_dir
+  dest_directory = data_dir
   if not os.path.exists(dest_directory):
     os.makedirs(dest_directory)
   filename = DATA_URL.split('/')[-1]
@@ -339,9 +341,9 @@ def maybe_download_and_extract():
       sys.stdout.write('\r>> Downloading %s %.1f%%' % (filename,
           float(count * block_size) / float(total_size) * 100.0))
       sys.stdout.flush()
-    filepath, _ = urllib.request.urlretrieve(DATA_URL, filepath, _progress)
+    filepath, _ = urllib.urlretrieve(DATA_URL, filepath, _progress)
     print()
     statinfo = os.stat(filepath)
     print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
   tarfile.open(filepath, 'r:gz').extractall(dest_directory)
-'''
+

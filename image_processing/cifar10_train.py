@@ -89,8 +89,9 @@ def train(train_dir, data_dir, batch_size=128, max_steps=100000, log_device_plac
 
 
 if __name__ == '__main__':
-  train_dir = 'cifar10_train'
   data_dir = 'cifar10_data'
+  train_dir = 'cifar10_train'
+  cifar10.maybe_download_and_extract(data_dir)
   if tf.gfile.Exists(train_dir):
     tf.gfile.DeleteRecursively(train_dir)
   tf.gfile.MakeDirs(train_dir)
