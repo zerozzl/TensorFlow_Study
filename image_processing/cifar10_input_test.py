@@ -14,16 +14,9 @@
 # ==============================================================================
 
 """Tests for cifar10 input."""
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import os
-
 import tensorflow as tf
-
-from tensorflow.models.image.cifar10 import cifar10_input
+import cifar10_input
 
 
 class CIFAR10InputTest(tf.test.TestCase):

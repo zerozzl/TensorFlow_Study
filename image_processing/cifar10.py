@@ -1,18 +1,3 @@
-# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-
 """Builds the CIFAR-10 network.
 Summary of available functions:
  # Compute input images and labels for training. If you would like to run
@@ -25,31 +10,22 @@ Summary of available functions:
  # Create a graph to run one step of training with respect to the loss.
  train_op = train(loss, global_step)
 """
-# pylint: disable=missing-docstring
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import gzip
 import os
 import re
-import sys
-import tarfile
-
-from six.moves import urllib
 import tensorflow as tf
 
-from tensorflow.models.image.cifar10 import cifar10_input
+import cifar10_input
 
-FLAGS = tf.app.flags.FLAGS
-
-# Basic model parameters.
-tf.app.flags.DEFINE_integer('batch_size', 128,
-                            """Number of images to process in a batch.""")
-tf.app.flags.DEFINE_string('data_dir', '/tmp/cifar10_data',
-                           """Path to the CIFAR-10 data directory.""")
-tf.app.flags.DEFINE_boolean('use_fp16', False,
-                            """Train the model using fp16.""")
+#
+# FLAGS = tf.app.flags.FLAGS
+#
+# # Basic model parameters.
+# tf.app.flags.DEFINE_integer('batch_size', 128,
+#                             """Number of images to process in a batch.""")
+# tf.app.flags.DEFINE_string('data_dir', '/tmp/cifar10_data',
+#                            """Path to the CIFAR-10 data directory.""")
+# tf.app.flags.DEFINE_boolean('use_fp16', False,
+#                             """Train the model using fp16.""")
 
 # Global constants describing the CIFAR-10 data set.
 IMAGE_SIZE = cifar10_input.IMAGE_SIZE
@@ -88,7 +64,7 @@ def _activation_summary(x):
   tf.scalar_summary(tensor_name + '/sparsity', tf.nn.zero_fraction(x))
 
 
-def _variable_on_cpu(name, shape, initializer):
+def _variable_on_cpu(name, shape, initializer, use_fp16=False):
   """Helper to create a Variable stored on CPU memory.
   Args:
     name: name of the variable
@@ -98,12 +74,12 @@ def _variable_on_cpu(name, shape, initializer):
     Variable Tensor
   """
   with tf.device('/cpu:0'):
-    dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
+    dtype = tf.float16 if use_fp16 else tf.float32
     var = tf.get_variable(name, shape, initializer=initializer, dtype=dtype)
   return var
 
 
-def _variable_with_weight_decay(name, shape, stddev, wd):
+def _variable_with_weight_decay(name, shape, stddev, wd, use_fp16=False):
   """Helper to create an initialized Variable with weight decay.
   Note that the Variable is initialized with a truncated normal distribution.
   A weight decay is added only if one is specified.
@@ -116,7 +92,7 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
   Returns:
     Variable Tensor
   """
-  dtype = tf.float16 if FLAGS.use_fp16 else tf.float32
+  dtype = tf.float16 if use_fp16 else tf.float32
   var = _variable_on_cpu(
       name,
       shape,
@@ -127,7 +103,7 @@ def _variable_with_weight_decay(name, shape, stddev, wd):
   return var
 
 
-def distorted_inputs():
+def distorted_inputs(data_dir, batch_size=128, use_fp16=False):
   """Construct distorted input for CIFAR training using the Reader ops.
   Returns:
     images: Images. 4D tensor of [batch_size, IMAGE_SIZE, IMAGE_SIZE, 3] size.
@@ -135,18 +111,18 @@ def distorted_inputs():
   Raises:
     ValueError: If no data_dir
   """
-  if not FLAGS.data_dir:
+  if not data_dir:
     raise ValueError('Please supply a data_dir')
-  data_dir = os.path.join(FLAGS.data_dir, 'cifar-10-batches-bin')
+  data_dir = os.path.join(data_dir, 'cifar-10-batches-bin')
   images, labels = cifar10_input.distorted_inputs(data_dir=data_dir,
-                                                  batch_size=FLAGS.batch_size)
-  if FLAGS.use_fp16:
+                                                  batch_size=batch_size)
+  if use_fp16:
     images = tf.cast(images, tf.float16)
     labels = tf.cast(labels, tf.float16)
   return images, labels
 
 
-def inputs(eval_data):
+def inputs(eval_data, data_dir, batch_size=128, use_fp16=False):
   """Construct input for CIFAR evaluation using the Reader ops.
   Args:
     eval_data: bool, indicating if one should use the train or eval data set.
@@ -156,19 +132,19 @@ def inputs(eval_data):
   Raises:
     ValueError: If no data_dir
   """
-  if not FLAGS.data_dir:
+  if not data_dir:
     raise ValueError('Please supply a data_dir')
-  data_dir = os.path.join(FLAGS.data_dir, 'cifar-10-batches-bin')
+  data_dir = os.path.join(data_dir, 'cifar-10-batches-bin')
   images, labels = cifar10_input.inputs(eval_data=eval_data,
                                         data_dir=data_dir,
-                                        batch_size=FLAGS.batch_size)
-  if FLAGS.use_fp16:
+                                        batch_size=batch_size)
+  if use_fp16:
     images = tf.cast(images, tf.float16)
     labels = tf.cast(labels, tf.float16)
   return images, labels
 
 
-def inference(images):
+def inference(images, batch_size=128):
   """Build the CIFAR-10 model.
   Args:
     images: Images returned from distorted_inputs() or inputs().
@@ -221,7 +197,7 @@ def inference(images):
   # local3
   with tf.variable_scope('local3') as scope:
     # Move everything into depth so we can perform a single matrix multiply.
-    reshape = tf.reshape(pool2, [FLAGS.batch_size, -1])
+    reshape = tf.reshape(pool2, [batch_size, -1])
     dim = reshape.get_shape()[1].value
     weights = _variable_with_weight_decay('weights', shape=[dim, 384],
                                           stddev=0.04, wd=0.004)
@@ -296,7 +272,7 @@ def _add_loss_summaries(total_loss):
   return loss_averages_op
 
 
-def train(total_loss, global_step):
+def train(total_loss, global_step, batch_size=128):
   """Train CIFAR-10 model.
   Create an optimizer and apply to all trainable variables. Add moving
   average for all trainable variables.
@@ -308,7 +284,7 @@ def train(total_loss, global_step):
     train_op: op for training.
   """
   # Variables that affect learning rate.
-  num_batches_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN / FLAGS.batch_size
+  num_batches_per_epoch = NUM_EXAMPLES_PER_EPOCH_FOR_TRAIN / batch_size
   decay_steps = int(num_batches_per_epoch * NUM_EPOCHS_PER_DECAY)
 
   # Decay the learning rate exponentially based on the number of steps.
@@ -350,6 +326,7 @@ def train(total_loss, global_step):
   return train_op
 
 
+'''
 def maybe_download_and_extract():
   """Download and extract the tarball from Alex's website."""
   dest_directory = FLAGS.data_dir
@@ -366,4 +343,5 @@ def maybe_download_and_extract():
     print()
     statinfo = os.stat(filepath)
     print('Successfully downloaded', filename, statinfo.st_size, 'bytes.')
-    tarfile.open(filepath, 'r:gz').extractall(dest_directory)
+  tarfile.open(filepath, 'r:gz').extractall(dest_directory)
+'''

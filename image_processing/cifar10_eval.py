@@ -1,18 +1,3 @@
-# Copyright 2015 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-
 """Evaluation for CIFAR-10.
 Accuracy:
 cifar10_train.py achieves 83.0% accuracy after 100K steps (256 epochs
@@ -26,10 +11,6 @@ Please see the tutorial and website for how to download the CIFAR-10
 data set, compile the program and train the model.
 http://tensorflow.org/tutorials/deep_cnn/
 """
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from datetime import datetime
 import math
 import time
@@ -37,25 +18,25 @@ import time
 import numpy as np
 import tensorflow as tf
 
-from tensorflow.models.image.cifar10 import cifar10
+import cifar10
 
-FLAGS = tf.app.flags.FLAGS
+# FLAGS = tf.app.flags.FLAGS
+#
+# tf.app.flags.DEFINE_string('eval_dir', '/tmp/cifar10_eval',
+#                            """Directory where to write event logs.""")
+# tf.app.flags.DEFINE_string('eval_data', 'test',
+#                            """Either 'test' or 'train_eval'.""")
+# tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
+#                            """Directory where to read model checkpoints.""")
+# tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5,
+#                             """How often to run the eval.""")
+# tf.app.flags.DEFINE_integer('num_examples', 10000,
+#                             """Number of examples to run.""")
+# tf.app.flags.DEFINE_boolean('run_once', False,
+#                          """Whether to run eval only once.""")
 
-tf.app.flags.DEFINE_string('eval_dir', '/tmp/cifar10_eval',
-                           """Directory where to write event logs.""")
-tf.app.flags.DEFINE_string('eval_data', 'test',
-                           """Either 'test' or 'train_eval'.""")
-tf.app.flags.DEFINE_string('checkpoint_dir', '/tmp/cifar10_train',
-                           """Directory where to read model checkpoints.""")
-tf.app.flags.DEFINE_integer('eval_interval_secs', 60 * 5,
-                            """How often to run the eval.""")
-tf.app.flags.DEFINE_integer('num_examples', 10000,
-                            """Number of examples to run.""")
-tf.app.flags.DEFINE_boolean('run_once', False,
-                         """Whether to run eval only once.""")
 
-
-def eval_once(saver, summary_writer, top_k_op, summary_op):
+def eval_once(saver, summary_writer, top_k_op, summary_op, checkpoint_dir, num_examples=10000, batch_size=128):
   """Run Eval once.
   Args:
     saver: Saver.
@@ -64,7 +45,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
     summary_op: Summary op.
   """
   with tf.Session() as sess:
-    ckpt = tf.train.get_checkpoint_state(FLAGS.checkpoint_dir)
+    ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:
       # Restores from checkpoint
       saver.restore(sess, ckpt.model_checkpoint_path)
@@ -84,9 +65,9 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
         threads.extend(qr.create_threads(sess, coord=coord, daemon=True,
                                          start=True))
 
-      num_iter = int(math.ceil(FLAGS.num_examples / FLAGS.batch_size))
+      num_iter = int(math.ceil(num_examples / batch_size))
       true_count = 0  # Counts the number of correct predictions.
-      total_sample_count = num_iter * FLAGS.batch_size
+      total_sample_count = num_iter * batch_size
       step = 0
       while step < num_iter and not coord.should_stop():
         predictions = sess.run([top_k_op])
@@ -94,7 +75,7 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
         step += 1
 
       # Compute precision @ 1.
-      precision = true_count / total_sample_count
+      precision = float(true_count) / total_sample_count
       print('%s: precision @ 1 = %.3f' % (datetime.now(), precision))
 
       summary = tf.Summary()
@@ -108,12 +89,12 @@ def eval_once(saver, summary_writer, top_k_op, summary_op):
     coord.join(threads, stop_grace_period_secs=10)
 
 
-def evaluate():
+def evaluate(data_dir, eval_data, eval_dir, checkpoint_dir, run_once=True, eval_interval_secs=60 * 5):
   """Eval CIFAR-10 for a number of steps."""
   with tf.Graph().as_default() as g:
     # Get images and labels for CIFAR-10.
-    eval_data = FLAGS.eval_data == 'test'
-    images, labels = cifar10.inputs(eval_data=eval_data)
+    eval_data = eval_data == 'test'
+    images, labels = cifar10.inputs(eval_data=eval_data, data_dir=data_dir)
 
     # Build a Graph that computes the logits predictions from the
     # inference model.
@@ -131,22 +112,22 @@ def evaluate():
     # Build the summary operation based on the TF collection of Summaries.
     summary_op = tf.merge_all_summaries()
 
-    summary_writer = tf.train.SummaryWriter(FLAGS.eval_dir, g)
+    summary_writer = tf.train.SummaryWriter(eval_dir, g)
 
     while True:
-      eval_once(saver, summary_writer, top_k_op, summary_op)
-      if FLAGS.run_once:
+      eval_once(saver, summary_writer, top_k_op, summary_op, checkpoint_dir)
+      if run_once:
         break
-      time.sleep(FLAGS.eval_interval_secs)
-
-
-def main(argv=None):  # pylint: disable=unused-argument
-  cifar10.maybe_download_and_extract()
-  if tf.gfile.Exists(FLAGS.eval_dir):
-    tf.gfile.DeleteRecursively(FLAGS.eval_dir)
-  tf.gfile.MakeDirs(FLAGS.eval_dir)
-  evaluate()
+      time.sleep(eval_interval_secs)
 
 
 if __name__ == '__main__':
-    tf.app.run()
+  # cifar10.maybe_download_and_extract()
+  eval_dir = 'cifar10_eval'
+  checkpoint_dir = 'cifar10_train'
+  eval_data = 'test'  # Either 'test' or 'train_eval'
+  data_dir = 'cifar10_data'
+  if tf.gfile.Exists(eval_dir):
+    tf.gfile.DeleteRecursively(eval_dir)
+  tf.gfile.MakeDirs(eval_dir)
+  evaluate(data_dir, eval_data, eval_dir, checkpoint_dir)
